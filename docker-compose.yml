@@ -1,0 +1,67 @@
+services:
+    timescaledb:
+        image: timescale/timescaledb-ha:pg16
+        restart: always
+        environment:
+            PGDATA: /home/postgres/pgdata/data/pgdata
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+        user: '0:0'
+        volumes:
+            - ./data/timescaledb:/home/postgres/pgdata/data
+            - ./config/postgres/main.conf:/etc/postgresql/postgresql.conf
+            - ./config/postgres/conf.d:/etc/postgresql/conf.d
+        command: ['postgres', '-c', 'config_file=/etc/postgresql/postgresql.conf']
+        networks:
+            - nerd-space
+
+    pgbouncer:
+        image: edoburu/pgbouncer
+        restart: always
+        environment:
+            DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+        ports:
+            - '5432:6432'
+        depends_on:
+            - timescaledb
+        networks:
+            - nerd-space
+
+    postgres_exporter:
+        image: prometheuscommunity/postgres-exporter
+        environment:
+            DATA_SOURCE_NAME: 'postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}?sslmode=disable'
+        depends_on:
+            - timescaledb
+        networks:
+            - nerd-space
+        restart: always
+
+    pgbouncer_exporter:
+        image: prometheuscommunity/pgbouncer-exporter
+        environment:
+            DATA_SOURCE_NAME: 'postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}?sslmode=disable'
+        depends_on:
+            - pgbouncer
+        networks:
+            - nerd-space
+        restart: always
+
+    prometheus:
+        image: prom/prometheus
+        volumes:
+            - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+            - ./data/prometheus:/prometheus
+        user: '0:0'
+        command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.enable-lifecycle'
+        restart: always
+        networks:
+            - nerd-space
+
+networks:
+    nerd-space:
+        external: true
