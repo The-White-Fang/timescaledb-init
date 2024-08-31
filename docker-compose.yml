@@ -21,8 +21,12 @@ services:
         restart: always
         environment:
             DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+            PGBOUNCER_AUTH_TYPE: md5
+            PGBOUNCER_AUTH_FILE: /etc/pgbouncer/userlist.txt
+        volumes:
+            - ./config/userlist.txt:/etc/pgbouncer/userlist.txt
         ports:
-            - '5432:6432'
+            - '5432:5432'
         depends_on:
             - timescaledb
         networks:
@@ -41,7 +45,7 @@ services:
     pgbouncer_exporter:
         image: prometheuscommunity/pgbouncer-exporter
         environment:
-            DATA_SOURCE_NAME: 'postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}?sslmode=disable'
+            DATA_SOURCE_NAME: 'postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:5432/pgbouncer?sslmode=disable'
         depends_on:
             - pgbouncer
         networks:
