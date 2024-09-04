@@ -3,15 +3,16 @@ services:
         image: timescale/timescaledb-ha:pg16
         restart: always
         environment:
-            PGDATA: /home/postgres/pgdata/data/pgdata
+            PGDATA: /home/postgres/data/pgdata
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
             POSTGRES_DB: ${POSTGRES_DB}
         user: '0:0'
         volumes:
-            - ./data/timescaledb:/home/postgres/pgdata/data
+            - ./data/timescaledb:/home/postgres/data
             - ./config/postgres/main.conf:/etc/postgresql/postgresql.conf
             - ./config/postgres/conf.d:/etc/postgresql/conf.d
+            - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
         command: ['postgres', '-c', 'config_file=/etc/postgresql/postgresql.conf']
         networks:
             - nerd-space
@@ -23,6 +24,7 @@ services:
             DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
             PGBOUNCER_AUTH_TYPE: md5
             PGBOUNCER_AUTH_FILE: /etc/pgbouncer/userlist.txt
+        user: '0:0'
         volumes:
             - ./config/userlist.txt:/etc/pgbouncer/userlist.txt
         ports:
@@ -35,7 +37,9 @@ services:
     postgres_exporter:
         image: prometheuscommunity/postgres-exporter
         environment:
-            DATA_SOURCE_NAME: 'postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}?sslmode=disable'
+            DATA_SOURCE_URI: 'timescaledb:5432/${POSTGRES_DB}?sslmode=disable'
+            DATA_SOURCE_USER: ${POSTGRES_USER}
+            DATA_SOURCE_PASS: ${POSTGRES_PASSWORD}
         depends_on:
             - timescaledb
         networks:
@@ -45,7 +49,7 @@ services:
     pgbouncer_exporter:
         image: prometheuscommunity/pgbouncer-exporter
         environment:
-            DATA_SOURCE_NAME: 'postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:5432/pgbouncer?sslmode=disable'
+            DATA_SOURCE_NAME: 'postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:5432/pgbouncer?sslmode=disable'
         depends_on:
             - pgbouncer
         networks:
